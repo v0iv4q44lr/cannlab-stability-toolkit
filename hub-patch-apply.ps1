@@ -25,14 +25,21 @@ $patches = @(
      new = 'dR(),ni.closeAllConnections&&ni.closeAllConnections(),await new Promise(r=>ni.close(()=>r()))' },
   @{ id = 'P4'
      old = 'QP=3'
-     new = 'QP=30' }
+     new = 'QP=30' },
+  @{ id = 'P5'
+     old = '!e&&!this.disposed&&this.scheduleWebSocketReconnect()'
+     new = '!this.disposed&&this.scheduleWebSocketReconnect()'
+     alreadyWhenAbsent = $true }   # P5 "applied" = long form gone (short form is a substring of old)
 )
 
 $applied = 0; $already = 0; $missing = 0
 foreach ($p in $patches) {
-  if ($s.Contains($p.new)) { $already++ }
-  elseif ($s.Contains($p.old)) { $s = $s.Replace($p.old, $p.new); $applied++ }
-  else { Write-Output ("WARN " + $p.id + ": anchor not found (plugin updated?)"); $missing++ }
+  if ($p.alreadyWhenAbsent) {
+    if (-not $s.Contains($p.old)) { $already++ } else { $s = $s.Replace($p.old, $p.new); $applied++ }
+  }
+  elseif ($s.Contains($p.new)) { $already++ }
+  elseif (($s.Split([string[]]@($p.old), [StringSplitOptions]::None).Count - 1) -eq 1) { $s = $s.Replace($p.old, $p.new); $applied++ }
+  else { Write-Output ("WARN " + $p.id + ": anchor count != 1 (plugin updated?) - skipped"); $missing++ }
 }
 if ($applied -gt 0) {
   $bak = "$hub.bak-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
