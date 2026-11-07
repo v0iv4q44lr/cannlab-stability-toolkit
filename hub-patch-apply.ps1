@@ -50,3 +50,21 @@ if ($applied -gt 0) {
   Write-Output ("Nothing to apply (already=" + $already + ", missing=" + $missing + ")")
 }
 if ($missing -gt 0) { exit 1 } else { exit 0 }
+
+# ---- P6: extension.js field-name bug (git-ssh-key 400 fix) ----
+# Extension v1.1.2 posts {id: devstageId} but backend requires dev_stage_id,
+# so key registration 400s 100% of the time -> server keypair and container
+# authorized_keys drift apart -> auth deadlock. Fix the field name locally.
+$ext = Join-Path $env:USERPROFILE '.vscode\extensions\atomgit-cloudenv.cannlabdevspace-1.1.2\dist\src\extension.js'
+if (Test-Path $ext) {
+  $es = [System.IO.File]::ReadAllText($ext)
+  $p6old = 'instances/git-ssh-key",{id:t,thirdType:0})'
+  $p6new = 'instances/git-ssh-key",{"dev_stage_id":t,thirdType:0})'
+  if ($es.Contains($p6new)) { Write-Output 'P6: already applied' }
+  elseif (($es.Split([string[]]@($p6old), [StringSplitOptions]::None).Count - 1) -eq 1) {
+    $ebak = "$ext.bak-p6-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    Copy-Item $ext $ebak
+    [System.IO.File]::WriteAllText($ext, $es.Replace($p6old, $p6new))
+    Write-Output ("P6: applied (git-ssh-key 400 fix). Backup: " + $ebak)
+  } else { Write-Output 'P6: anchor not found (extension updated?) - skipped' }
+} else { Write-Output 'P6: extension.js not found - skipped' }
